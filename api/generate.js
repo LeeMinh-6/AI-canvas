@@ -6,15 +6,13 @@ export default async function handler(req, res) {
 
   // Lấy API key từ "biến môi trường" (environment variable)
   // → key được giữ bí mật trên server, không ai đọc được
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
 
-  // Chuyển tiếp yêu cầu sang Anthropic
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Chuyển tiếp yêu cầu sang Google Gemini
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(req.body)
   });

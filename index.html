@@ -236,8 +236,8 @@
 
 <!-- Banner nhập API key — chỉ hiện khi chạy local (không có /api/generate) -->
 <div id="keyBanner">
-  <span>🔑 API Key (Anthropic):</span>
-  <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." />
+  <span>🔑 API Key (Google Gemini):</span>
+  <input type="password" id="apiKeyInput" placeholder="AIza-..." />
   <button onclick="saveKey()">Lưu key</button>
   <span id="keyStatus"></span>
   <span style="font-size:11px;color:#4c4c60;margin-left:auto">
@@ -385,8 +385,8 @@ if (isVercel) {
 function saveKey() {
   const v = document.getElementById('apiKeyInput').value.trim();
   const st = document.getElementById('keyStatus');
-  if (!v.startsWith('sk-ant-')) {
-    st.textContent = '✗ Key không đúng định dạng (phải bắt đầu bằng sk-ant-)';
+  if (!v.startsWith('AIza-')) {
+    st.textContent = '✗ Key không đúng định dạng (phải bắt đầu bằng AIza-)';
     st.className = 'err';
     return;
   }
@@ -515,40 +515,46 @@ async function generate() {
     // ── Chọn endpoint & headers tùy môi trường ──
     const endpoint = isVercel
       ? '/api/generate'                          // Vercel proxy — key ẩn trên server
-      : 'https://api.anthropic.com/v1/messages'; // Local — gọi thẳng với key người dùng nhập
+      : 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'; // Local — gọi thẳng với key người dùng nhập
 
     const headers = { 'Content-Type': 'application/json' };
-    if (!isVercel) {
-      headers['x-api-key'] = localApiKey;
-      headers['anthropic-version'] = '2023-06-01';
-    }
-
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        system: `You are an expert AI image prompt engineer. 
+    const bodyData = {
+      system_instruction: {
+        parts: { text: `You are an expert AI image prompt engineer. 
 The user gives you a sketch image, a description, and optional style/mood/color/lighting tags.
 Analyze the sketch and description, then produce ONE detailed English image generation prompt (under 120 words).
 Include: what you see in the sketch (shapes, composition), the description, all style tags, lighting, color, atmosphere.
-Output ONLY the prompt. No explanation. No quotes.`,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: sketchB64 } },
-            { type: 'text', text: `Description: ${desc}\nStyle tags: ${tags.join(', ') || 'none'}\nExtra notes: ${extra || 'none'}\n\nGenerate the image prompt now.` }
-          ]
-        }]
-      })
+Output ONLY the prompt. No explanation. No quotes.` }
+      },
+      contents: [{
+        role: 'user',
+        parts: [
+          { inline_data: { mime_type: 'image/png', data: sketchB64 } },
+          { text: `Description: ${desc}\nStyle tags: ${tags.join(', ') || 'none'}\nExtra notes: ${extra || 'none'}\n\nGenerate the image prompt now.` }
+        ]
+      }],
+      generation_config: {
+        max_output_tokens: 300
+      }
+    };
+
+    // Thêm API key vào URL nếu chạy local
+    let fetchUrl = endpoint;
+    if (!isVercel) {
+      fetchUrl += `?key=${localApiKey}`;
+    }
+
+    const resp = await fetch(fetchUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(bodyData)
     });
 
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error?.message || 'Claude API lỗi');
+    if (!resp.ok) throw new Error(data.error?.message || 'Gemini API lỗi');
 
-    const refinedPrompt = data.content?.find(b => b.type === 'text')?.text?.trim();
-    if (!refinedPrompt) throw new Error('Không nhận được prompt từ Claude');
+    const refinedPrompt = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!refinedPrompt) throw new Error('Không nhận được prompt từ Gemini');
 
     document.getElementById('promptPreview').textContent = '✦ ' + refinedPrompt;
     loaderMsg.textContent = 'Đang sinh ảnh (15-30 giây)...';
