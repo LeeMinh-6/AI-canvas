@@ -519,7 +519,7 @@ async function generate() {
 
     const headers = { 'Content-Type': 'application/json' };
     const bodyData = {
-      system_instruction: {
+      systemInstruction: {
         parts: { text: `You are an expert AI image prompt engineer. 
 The user gives you a sketch image, a description, and optional style/mood/color/lighting tags.
 Analyze the sketch and description, then produce ONE detailed English image generation prompt (under 120 words).
@@ -534,7 +534,7 @@ Output ONLY the prompt. No explanation. No quotes.` }
         ]
       }],
       generation_config: {
-        max_output_tokens: 300
+        maxOutputTokens: 300
       }
     };
 
