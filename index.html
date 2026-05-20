@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Canvas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f13;
+    color: #e8e8f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 16px 24px;
+    border-bottom: 0.5px solid #2a2a3a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #13131a;
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: #c4b5fd; letter-spacing: -0.3px; }
+  header p { font-size: 13px; color: #6b6b80; }
+
+  /* API KEY BANNER */
+  #keyBanner {
+    background: #1a1020;
+    border-bottom: 0.5px solid #4c38b0;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  #keyBanner span { font-size: 13px; color: #9999b8; white-space: nowrap; }
+  #keyBanner input {
+    flex: 1;
+    min-width: 200px;
+    background: #0f0f18;
+    border: 0.5px solid #4c38b0;
+    border-radius: 6px;
+    color: #e8e8f0;
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+    font-family: monospace;
+  }
+  #keyBanner input:focus { border-color: #6c63ff; }
+  #keyBanner button {
+    background: #2d2060;
+    border: 0.5px solid #6c63ff;
+    border-radius: 6px;
+    color: #c4b5fd;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #keyBanner button:hover { background: #3d2d80; }
+  #keyStatus { font-size: 12px; }
+  #keyStatus.ok { color: #4ade80; }
+  #keyStatus.err { color: #f87171; }
+
+  .main { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 57px); }
+  .left { display: flex; flex-direction: column; width: 55%; border-right: 0.5px solid #2a2a3a; }
+  .canvas-wrap { position: relative; flex: 1; background: #1a1a24; display: flex; align-items: center; justify-content: center; }
+  canvas#drawCanvas {
+    cursor: crosshair;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 0 40px rgba(100,80,200,0.15);
+  }
+  .toolbar {
+    padding: 10px 16px;
+    background: #13131a;
+    border-top: 0.5px solid #2a2a3a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tool-btn {
+    background: #1e1e2e;
+    border: 0.5px solid #3a3a50;
+    color: #c4c4d4;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .tool-btn:hover { background: #2a2a3e; border-color: #6c63ff; }
+  .tool-btn.active { background: #2d2060; border-color: #6c63ff; color: #c4b5fd; }
+  .tool-btn.danger:hover { border-color: #ef4444; color: #f87171; }
+  .color-btn {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .color-btn.active { border-color: #fff; transform: scale(1.2); }
+  input[type=range] { width: 80px; accent-color: #6c63ff; }
+  label.tool-label { font-size: 12px; color: #6b6b80; }
+
+  .right { display: flex; flex-direction: column; width: 45%; background: #13131a; overflow-y: auto; }
+  .section { padding: 16px; border-bottom: 0.5px solid #2a2a3a; }
+  .section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: #6b6b80; margin-bottom: 10px; }
+  textarea, input[type=text] {
+    width: 100%;
+    background: #1a1a24;
+    border: 0.5px solid #3a3a50;
+    border-radius: 8px;
+    color: #e8e8f0;
+    font-size: 14px;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  textarea:focus, input[type=text]:focus { border-color: #6c63ff; }
+  textarea { min-height: 72px; }
+
+  .tags-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    background: #1e1e2e;
+    border: 0.5px solid #3a3a50;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #9999b8;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .tag:hover { border-color: #6c63ff; color: #c4b5fd; }
+  .tag.selected { background: #2d2060; border-color: #6c63ff; color: #c4b5fd; }
+
+  .hint-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .hint-chip {
+    background: #1a1a2e;
+    border: 0.5px solid #2a2a3a;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #6b6b80;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .hint-chip:hover { border-color: #6c63ff; color: #c4b5fd; background: #1e1e30; }
+
+  .generate-btn {
+    margin: 16px;
+    background: linear-gradient(135deg, #4c38b0, #6c63ff);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    transition: all 0.2s;
+  }
+  .generate-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .result-area {
+    margin: 0 16px 16px;
+    min-height: 200px;
+    background: #1a1a24;
+    border: 0.5px solid #3a3a50;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+  .result-placeholder { color: #3a3a50; font-size: 13px; text-align: center; padding: 24px; line-height: 1.6; }
+  .result-placeholder .icon { font-size: 32px; margin-bottom: 8px; display: block; }
+
+  .loader { display: none; flex-direction: column; align-items: center; gap: 12px; padding: 24px; }
+  .loader.show { display: flex; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 2px solid #2a2a3a;
+    border-top-color: #6c63ff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader p { font-size: 13px; color: #6b6b80; }
+
+  .status-bar {
+    font-size: 12px; color: #6b6b80;
+    padding: 8px 16px; min-height: 32px;
+    border-top: 0.5px solid #2a2a3a; margin-top: auto;
+  }
+  .status-bar.ok { color: #4ade80; }
+  .status-bar.err { color: #f87171; }
+
+  .section-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 0; }
+  .section-toggle .arrow { font-size: 10px; color: #6b6b80; transition: transform 0.2s; }
+  .section-toggle.open .arrow { transform: rotate(180deg); }
+  .collapsible { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
+  .collapsible.open { max-height: 600px; margin-top: 10px; }
+
+  .prompt-preview {
+    background: #0f0f18;
+    border: 0.5px solid #2a2a3a;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #6b6b80;
+    margin: 0 16px 8px;
+    line-height: 1.5;
+    font-style: italic;
+    min-height: 32px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>✦ AI Canvas</h1>
+    <p>Vẽ phác thảo · Mô tả · Sinh ảnh AI</p>
+  </div>
+</header>
+
+<!-- Banner nhập API key — chỉ hiện khi chạy local (không có /api/generate) -->
+<div id="keyBanner">
+  <span>🔑 API Key (Anthropic):</span>
+  <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." />
+  <button onclick="saveKey()">Lưu key</button>
+  <span id="keyStatus"></span>
+  <span style="font-size:11px;color:#4c4c60;margin-left:auto">
+    Key chỉ lưu trong bộ nhớ tab này, không gửi đi đâu khác. 
+    Khi deploy lên Vercel, banner này sẽ tự ẩn.
+  </span>
+</div>
+
+<div class="main">
+  <div class="left">
+    <div class="canvas-wrap">
+      <canvas id="drawCanvas" width="520" height="400"></canvas>
+    </div>
+    <div class="toolbar">
+      <span class="tool-label">Công cụ:</span>
+      <button class="tool-btn active" id="btnPen" onclick="setTool('pen')">✏️ Bút</button>
+      <button class="tool-btn" id="btnEraser" onclick="setTool('eraser')">◻ Tẩy</button>
+      <span class="tool-label" style="margin-left:6px">Màu:</span>
+      <div class="color-btn active" style="background:#1a1a1a" onclick="setColor('#1a1a1a',this)"></div>
+      <div class="color-btn" style="background:#e53e3e" onclick="setColor('#e53e3e',this)"></div>
+      <div class="color-btn" style="background:#2b6cb0" onclick="setColor('#2b6cb0',this)"></div>
+      <div class="color-btn" style="background:#276749" onclick="setColor('#276749',this)"></div>
+      <div class="color-btn" style="background:#6c63ff" onclick="setColor('#6c63ff',this)"></div>
+      <input type="color" id="customColor" value="#1a1a1a" style="width:24px;height:24px;border-radius:50%;border:none;cursor:pointer;background:none" title="Chọn màu khác" onchange="setColor(this.value,this)">
+      <span class="tool-label" style="margin-left:6px">Cỡ:</span>
+      <input type="range" min="1" max="20" value="3" id="brushSize">
+      <span id="sizeLabel" style="font-size:12px;color:#6b6b80;min-width:20px">3px</span>
+      <button class="tool-btn danger" onclick="clearCanvas()" style="margin-left:auto">🗑 Xóa</button>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="section">
+      <h3>📝 Mô tả hình ảnh</h3>
+      <textarea id="description" placeholder="Ví dụ: một con mèo đang ngủ trên mái nhà, khói bếp, bầu trời hoàng hôn..."></textarea>
+      <div class="hint-row">
+        <span class="hint-chip" onclick="appendDesc('một con rồng đang bay')">🐉 rồng bay</span>
+        <span class="hint-chip" onclick="appendDesc('cô gái trong rừng bí ẩn')">🌿 rừng bí ẩn</span>
+        <span class="hint-chip" onclick="appendDesc('thành phố tương lai ban đêm')">🌆 phố tương lai</span>
+        <span class="hint-chip" onclick="appendDesc('ngôi nhà nhỏ bên bờ biển')">🏠 nhà biển</span>
+        <span class="hint-chip" onclick="appendDesc('robot cổ điển đọc sách')">🤖 robot đọc sách</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-toggle open" id="toggleSuggest" onclick="toggleSection()">
+        <h3 style="margin:0">✨ Gợi ý phong cách & bối cảnh</h3>
+        <span class="arrow">▲</span>
+      </div>
+      <div class="collapsible open" id="collSuggest">
+        <div style="margin-bottom:10px">
+          <div class="tool-label" style="margin-bottom:6px">🎨 Phong cách nghệ thuật</div>
+          <div class="tags-grid">
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Anime</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Watercolor</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Oil painting</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Pixel art</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Sketch</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">3D render</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Cyberpunk</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Fantasy</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Minimalist</span>
+            <span class="tag" data-group="style" onclick="toggleTag(this)">Photorealistic</span>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="tool-label" style="margin-bottom:6px">🌈 Bảng màu sắc</div>
+          <div class="tags-grid">
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Warm tones</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Cool tones</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Pastel</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Neon</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Monochrome</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Earthy</span>
+            <span class="tag" data-group="color" onclick="toggleTag(this)">Golden hour</span>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="tool-label" style="margin-bottom:6px">💡 Ánh sáng</div>
+          <div class="tags-grid">
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Dramatic shadows</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Soft diffused</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Backlit</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Neon glow</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Candlelight</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Moonlight</span>
+            <span class="tag" data-group="light" onclick="toggleTag(this)">Sunlight rays</span>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div class="tool-label" style="margin-bottom:6px">🌍 Bối cảnh</div>
+          <div class="tags-grid">
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Rừng cổ tích</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Thành phố mưa</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Vũ trụ</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Đại dương sâu</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Hoang mạc</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Nhật Bản cổ</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Tương lai</span>
+            <span class="tag" data-group="scene" onclick="toggleTag(this)">Nông thôn</span>
+          </div>
+        </div>
+        <div>
+          <div class="tool-label" style="margin-bottom:6px">🖊 Ghi chú thêm</div>
+          <input type="text" id="extraNote" placeholder="VD: ultra detailed, 8k, cinematic...">
+        </div>
+      </div>
+    </div>
+
+    <div class="prompt-preview" id="promptPreview">Prompt sẽ hiện ở đây khi bạn chọn gợi ý...</div>
+    <button class="generate-btn" id="genBtn" onclick="generate()">✦ Tạo ảnh AI</button>
+
+    <div class="result-area" id="resultArea">
+      <div class="loader" id="loader">
+        <div class="spinner"></div>
+        <p id="loaderMsg">AI đang phân tích nét vẽ...</p>
+      </div>
+      <div id="resultContent">
+        <div class="result-placeholder">
+          <span class="icon">🖼</span>
+          Ảnh AI sẽ xuất hiện ở đây<br>
+          <span style="font-size:11px;color:#2a2a3a">Vẽ phác thảo + điền mô tả rồi nhấn tạo ảnh</span>
+        </div>
+      </div>
+    </div>
+    <div class="status-bar" id="statusBar">Sẵn sàng</div>
+  </div>
+</div>
+
+<script>
+// ─── PHÁT HIỆN MÔI TRƯỜNG ───────────────────────────────────────────────────
+// isVercel = true  → đang chạy trên Vercel, dùng /api/generate (key ẩn trên server)
+// isVercel = false → đang chạy local, cần nhập API key thủ công
+const isVercel = window.location.hostname !== 'localhost'
+               && window.location.hostname !== '127.0.0.1'
+               && window.location.protocol !== 'file:';
+
+let localApiKey = '';
+
+// Ẩn banner nếu đang trên Vercel
+if (isVercel) {
+  document.getElementById('keyBanner').style.display = 'none';
+}
+
+function saveKey() {
+  const v = document.getElementById('apiKeyInput').value.trim();
+  const st = document.getElementById('keyStatus');
+  if (!v.startsWith('sk-ant-')) {
+    st.textContent = '✗ Key không đúng định dạng (phải bắt đầu bằng sk-ant-)';
+    st.className = 'err';
+    return;
+  }
+  localApiKey = v;
+  st.textContent = '✓ Đã lưu!';
+  st.className = 'ok';
+}
+
+// ─── CANVAS ──────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = '#ffffff';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+let drawing = false, tool = 'pen', color = '#1a1a1a', brushSize = 3;
+
+canvas.addEventListener('mousedown', e => { drawing = true; ctx.beginPath(); ctx.moveTo(...pos(e)); });
+canvas.addEventListener('mousemove', e => {
+  if (!drawing) return;
+  ctx.lineWidth = tool === 'eraser' ? brushSize * 4 : brushSize;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
+  ctx.lineTo(...pos(e)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(...pos(e));
+});
+canvas.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('mouseleave', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; ctx.beginPath(); ctx.moveTo(...posTouch(e)); });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!drawing) return;
+  ctx.lineWidth = tool === 'eraser' ? brushSize * 4 : brushSize;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : color;
+  ctx.lineTo(...posTouch(e)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(...posTouch(e));
+});
+canvas.addEventListener('touchend', () => drawing = false);
+
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return [(e.clientX - r.left) * canvas.width / r.width, (e.clientY - r.top) * canvas.height / r.height];
+}
+function posTouch(e) { return pos(e.touches[0]); }
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(t === 'pen' ? 'btnPen' : 'btnEraser').classList.add('active');
+}
+function setColor(c, el) {
+  color = c;
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  if (el && el.classList) el.classList.add('active');
+  if (tool === 'eraser') setTool('pen');
+}
+function clearCanvas() { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+document.getElementById('brushSize').addEventListener('input', e => {
+  brushSize = +e.target.value;
+  document.getElementById('sizeLabel').textContent = brushSize + 'px';
+});
+
+// ─── TAGS & PREVIEW ──────────────────────────────────────────────────────────
+function toggleTag(el) {
+  el.classList.toggle('selected');
+  updatePromptPreview();
+}
+function appendDesc(txt) {
+  const d = document.getElementById('description');
+  d.value = (d.value ? d.value + ', ' : '') + txt;
+  updatePromptPreview();
+}
+function toggleSection() {
+  document.getElementById('toggleSuggest').classList.toggle('open');
+  document.getElementById('collSuggest').classList.toggle('open');
+}
+function getSelected() {
+  return [...document.querySelectorAll('.tag.selected')].map(t => t.textContent.trim());
+}
+function updatePromptPreview() {
+  const parts = [
+    document.getElementById('description').value.trim(),
+    getSelected().join(', '),
+    document.getElementById('extraNote').value.trim()
+  ].filter(Boolean);
+  document.getElementById('promptPreview').textContent = parts.length ? parts.join(' • ') : 'Prompt sẽ hiện ở đây khi bạn chọn gợi ý...';
+}
+document.getElementById('description').addEventListener('input', updatePromptPreview);
+document.getElementById('extraNote').addEventListener('input', updatePromptPreview);
+
+function setStatus(msg, cls) {
+  const s = document.getElementById('statusBar');
+  s.textContent = msg; s.className = 'status-bar ' + (cls || '');
+}
+
+// ─── GENERATE ────────────────────────────────────────────────────────────────
+async function generate() {
+  const desc = document.getElementById('description').value.trim();
+  if (!desc) { setStatus('⚠ Hãy nhập mô tả hình ảnh trước!', 'err'); return; }
+
+  // Kiểm tra key nếu chạy local
+  if (!isVercel && !localApiKey) {
+    setStatus('⚠ Hãy nhập API Key ở banner phía trên trước!', 'err');
+    document.getElementById('apiKeyInput').focus();
+    return;
+  }
+
+  const tags = getSelected();
+  const extra = document.getElementById('extraNote').value.trim();
+  const sketchB64 = canvas.toDataURL('image/png').split(',')[1];
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true;
+
+  const loader = document.getElementById('loader');
+  const resultContent = document.getElementById('resultContent');
+  loader.classList.add('show');
+  resultContent.style.display = 'none';
+
+  const msgs = ['AI đang phân tích nét vẽ...', 'Xây dựng prompt chi tiết...', 'Đang sinh ảnh...'];
+  let mi = 0;
+  const loaderMsg = document.getElementById('loaderMsg');
+  const msgInterval = setInterval(() => { loaderMsg.textContent = msgs[++mi % msgs.length]; }, 1800);
+  setStatus('⏳ Đang xử lý...');
+
+  try {
+    // ── Chọn endpoint & headers tùy môi trường ──
+    const endpoint = isVercel
+      ? '/api/generate'                          // Vercel proxy — key ẩn trên server
+      : 'https://api.anthropic.com/v1/messages'; // Local — gọi thẳng với key người dùng nhập
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (!isVercel) {
+      headers['x-api-key'] = localApiKey;
+      headers['anthropic-version'] = '2023-06-01';
+    }
+
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        system: `You are an expert AI image prompt engineer. 
+The user gives you a sketch image, a description, and optional style/mood/color/lighting tags.
+Analyze the sketch and description, then produce ONE detailed English image generation prompt (under 120 words).
+Include: what you see in the sketch (shapes, composition), the description, all style tags, lighting, color, atmosphere.
+Output ONLY the prompt. No explanation. No quotes.`,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: sketchB64 } },
+            { type: 'text', text: `Description: ${desc}\nStyle tags: ${tags.join(', ') || 'none'}\nExtra notes: ${extra || 'none'}\n\nGenerate the image prompt now.` }
+          ]
+        }]
+      })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error?.message || 'Claude API lỗi');
+
+    const refinedPrompt = data.content?.find(b => b.type === 'text')?.text?.trim();
+    if (!refinedPrompt) throw new Error('Không nhận được prompt từ Claude');
+
+    document.getElementById('promptPreview').textContent = '✦ ' + refinedPrompt;
+    loaderMsg.textContent = 'Đang sinh ảnh (15-30 giây)...';
+    setStatus('✦ ' + refinedPrompt.substring(0, 90) + '...');
+
+    // ── Sinh ảnh qua Pollinations ──
+    const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(refinedPrompt)}?width=768&height=512&seed=${Math.floor(Math.random()*99999)}&model=flux&nologo=true`;
+
+    clearInterval(msgInterval);
+    loader.classList.remove('show');
+    resultContent.style.display = '';
+    resultContent.innerHTML = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'position:relative;width:100%';
+
+    const img = new Image();
+    img.style.cssText = 'width:100%;border-radius:9px;display:block;min-height:180px;background:#1a1a24';
+
+    const note = document.createElement('p');
+    note.textContent = '⏳ Ảnh đang tải, vui lòng chờ...';
+    note.style.cssText = 'font-size:12px;color:#6b6b80;padding:8px 0;text-align:center';
+
+    img.onload = () => { note.remove(); btn.disabled = false; setStatus('✅ Tạo ảnh thành công!', 'ok'); };
+    img.onerror = () => {
+      note.textContent = '⚠ Pollinations không phản hồi — thử lại hoặc mở link:';
+      note.style.color = '#f87171';
+      const lnk = document.createElement('a');
+      lnk.href = imgUrl; lnk.target = '_blank';
+      lnk.textContent = '🔗 Mở ảnh trong tab mới';
+      lnk.style.cssText = 'display:block;font-size:12px;color:#818cf8;text-align:center;padding:4px 0;text-decoration:underline';
+      wrapper.appendChild(lnk);
+      btn.disabled = false;
+      setStatus('⚠ Không tải được ảnh — thử lại', 'err');
+    };
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(note);
+    resultContent.appendChild(wrapper);
+    img.src = imgUrl;
+
+  } catch (err) {
+    clearInterval(msgInterval);
+    loader.classList.remove('show');
+    resultContent.style.display = '';
+    resultContent.innerHTML = `<div class="result-placeholder"><span class="icon">⚠️</span>${err.message}</div>`;
+    btn.disabled = false;
+    setStatus('❌ ' + err.message, 'err');
+  }
+}
+</script>
+</body>
+</html>
